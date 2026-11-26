@@ -1,6 +1,6 @@
 # AtlasOS AppX Orphan Repair — WinRE yöntemi
 
-**Topluluk rehberi / deneysel manuel onarım • 26 Kasım 2026 • v0.1 — rehber revizyonu 2**
+**Topluluk rehberi / deneysel manuel onarım • 26 Kasım 2026 • v0.1 — rehber revizyonu 3**
 
 Microsoft Store, AppX ve MSIX yüklemelerinde `0x80073CF9` / iç hata `0x80070490` (Evaluated state) için hedefli onarım. Windows'u yeniden kurmadan çözülen bir AtlasOS 0.4.1 vakasına dayanır. AtlasOS veya Microsoft tarafından onaylanmış bir araç değildir. Her kurulum hatasını çözmez.
 
@@ -24,7 +24,7 @@ Bir uygulamayı güvenilir kaynaktan kurmayı deneyip yeni olayın tarihini doğ
 
 `%ProgramData%\Microsoft\Windows\AppRepository` altında bulunan `StateRepository-Machine.srd` içindeki `Package._PackageID` kayıtları ile `StateRepository-Deployment.srd` içindeki `File.Package`, `AppxManifest.Package`, `PackageSourceUri.Package` ilişkilidir. AtlasOS #1763 ve #1764, eski AME `!appx` kaldırmalarından sonra sahipsiz Deployment kayıtları kalabildiğini ve bunların Evaluated aşamasındaki hatanın muhtemel nedeni olduğunu açıklıyor. Microsoft bu iç şemayı belgelemiyor. Ham `foreign_key_check` çıktısı farklı veritabanında bulunan üst tabloları eksik sanabilir; tek başına bütün veritabanının bozuk olduğunu göstermez. `quick_check=ok` da mantıksal tutarlılık garantisi değildir.
 
-Bu pakette sadece üç hedef tablonun Machine tarafında bulunmayan paket kimlikli satırları silinir. Machine veritabanı salt okunur açılır. Bütün veritabanı silinmez. Referans tablolarındaki yabancı anahtar hata sayısı artarsa işlem geri alınır; mevcut hataları onarmaya çalışmaz. Bu, Atlas önerisinin WinRE uyarlamasıdır, orijinal Atlas kodu değildir.
+Bu pakette sadece üç hedef tablonun Machine tarafında bulunmayan paket kimlikli satırları silinir. Machine veritabanı salt okunur açılır. Bütün veritabanı silinmez. Referans tablolarında yeni yabancı anahtar ihlali oluşursa, geçerli kayıt sayısı değişirse veya tetikleyici ek satır değişiklikleri yaparsa işlem durur ve geri alınır; mevcut hataları onarmaya çalışmaz. Bu, Atlas önerisinin WinRE uyarlamasıdır, orijinal Atlas kodu değildir.
 
 ### Sahipsiz kayıtlar kurulumu nasıl engelleyebilir?
 
@@ -36,7 +36,7 @@ Bu pakette sadece üç hedef tablonun Machine tarafında bulunmayan paket kimlik
 
 - Bekleyen Windows/Atlas güncellemesi varsa önce güvenle tamamlayın. Devam eden güncelleme sırasında onarım yapmayın. Kurtarma anahtarını güvenli biçimde saklayın; BitLocker'ı sırf bu rehber için kapatmayın.
 - Harici diske tam sistem imajı ve kişisel dosya yedeği alın; kurtarma ortamından erişilebilir olduğunu doğrulayın. Sistem imajı geri yüklemesinin sonradan yapılan değişiklikleri kaybettirebileceğini unutmayın.
-- Bu paketi bir klasöre çıkarın: örneğin `C:\AppxRepair` (dosyalar doğrudan klasörün içinde olmalı).
+- GitHub’da **Code → Download ZIP** seçin. İçeriği `C:\AppxRepair` klasörüne çıkarın; SQL dosyaları doğrudan bu klasörde olmalı. Windows normalde başka bir sürücüdeyse bu hazırlık adımında ve SQLite sürüm kontrolünde o harfi kullanın.
 - https://sqlite.org/download.html adresinden Windows mimarinize uygun **sqlite-tools** arşivini indirin, yayınlanan sağlama toplamını doğrulayın ve `sqlite3.exe` dosyasını aynı klasöre koyun. Bu pakette exe yoktur. WinRE ile uyumlu çalıştırılabilir dosya gerekir.
 - Yönetici PowerShell'den `C:\AppxRepair\sqlite3.exe -version` ile aracın çalıştığını kontrol edin. Güncel SQLite CLI kullanın.
 - Ayarlar > Sistem > Kurtarma > Gelişmiş başlangıç > Şimdi yeniden başlat; Sorun gider > Gelişmiş seçenekler > Komut İstemi. Alternatif: Shift tuşuyla Yeniden Başlat.
@@ -119,7 +119,7 @@ Hâlâ çalışma kopyası klasöründeyken:
 "%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
 ```
 
-LivePackages > 0, LiveFiles > 0 ve Orphan_File <= LiveFiles olmalıdır. En az bir sahipsiz kayıt bulunmalı. Hiç yoksa bu onarım gereksizdir. Sayılar başka bilgisayardan kopyalanmaz. Şema hatası, SQL hatası veya quick_check != ok durumunda durun.
+LivePackages > 0, LiveFiles > 0 ve Orphan_File <= LiveFiles olmalıdır. En az bir sahipsiz kayıt bulunmalı; üç `Unexpected_*_Package` sayısı da sıfır olmalı. Hiç yoksa bu onarım gereksizdir. Sayılar başka bilgisayardan kopyalanmaz. Şema hatası, SQL hatası veya quick_check != ok durumunda durun.
 
 ```cmd
 "%SQL%" -bail "%DB%" < "%TOOLS%\repair-test.sql"
@@ -149,7 +149,7 @@ Sayılar çalışma kopyası ile aynı olmalı. Değilse durun ve yedekleme/teş
 "%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
 ```
 
-Üç orphan sayısı sıfır, quick_check `ok`, geçerli paket ve dosya sayıları aynı olmalıdır. WAL içeriği geçerli SQLite durumunun parçasıdır; WAL/SHM dosyalarını elle silmeyin.
+Üç orphan sayısı sıfır, quick_check `ok`, geçerli paket, File, manifest ve kaynak URI sayıları aynı olmalıdır. WAL içeriği geçerli SQLite durumunun parçasıdır; WAL/SHM dosyalarını elle silmeyin.
 
 ```cmd
 wpeutil reboot
@@ -176,7 +176,7 @@ Başlat, Store, Hesap Makinesi gibi uygulamaları kontrol edin. Daha önce hata 
 
 ## 10. Vaka ve test kapsamı
 
-Bkz. `CASE-STUDY.md`, `TEST-RESULTS.txt`. Bu dağıtımın SQL betikleri önceki vaka betiğinden geliştirilmiştir; yeni testler gerçek Windows değil sentetik SQLite veritabanlarında yapılmıştır. `test_sql.py` yalnızca geçici örnek veritabanları kullanır, Python 3 gerektirir ve Windows onarımı yapmaz. CLI nokta komutları, WinRE uyumluluğu ve dosya kopyalama/geri yükleme bu testlerin kapsamı dışındadır.
+Bkz. `CASE-STUDY.md`, `TEST-RESULTS.txt`. Bu dağıtımın SQL betikleri önceki vaka betiğinden geliştirilmiştir; 26 onarım modu testi gerçek Windows değil sentetik SQLite veritabanlarında yapılmıştır. Betikler NULL veya tam sayı olmayan paket kimliklerini, sıfır geçerli File kaydını, yeni yabancı anahtar ihlallerini, rowid bilgisi olmayan ihlalleri, tetikleyicilerden gelen ek satır değişikliklerini ve geçerli kayıt sayılarındaki değişimi reddeder. Bazı Windows sürümlerinde meşru tetikleyiciler bile bu ihtiyatlı kontrol nedeniyle onarımı durdurabilir; kontrolü atlamayın. `test_sql.py` yalnızca geçici örnek veritabanları kullanır, Python 3 gerektirir ve Windows onarımı yapmaz. CLI nokta komutları, WinRE uyumluluğu ve dosya kopyalama/geri yükleme bu testlerin kapsamı dışındadır.
 
 ## Kaynak ve atıf
 
@@ -186,4 +186,4 @@ Bkz. `CASE-STUDY.md`, `TEST-RESULTS.txt`. Bu dağıtımın SQL betikleri önceki
 - Microsoft AppX troubleshooting: https://learn.microsoft.com/en-us/windows/win32/appxpkg/troubleshooting
 - SQLite CLI: https://sqlite.org/cli.html ; PRAGMA: https://sqlite.org/pragma.html
 
-Bu çalışma AtlasOS ile bağlantılı resmî bir ürün değildir. Kaynak kodun yeniden dağıtım koşullarını doğrulamadan upstream kodu kopyalayıp lisanslamayın; bu pakette bağımsız SQL uyarlaması vardır. Kişisel verileri ve gerçek veritabanlarını paylaşmayın.
+Bu çalışma AtlasOS ile bağlantılı resmî bir ürün değildir. Bu bağımsız SQL uyarlaması GPL-3.0 lisansıyla paylaşılmaktadır (LICENSE); Atlas projesi de GPL-3.0 lisanslıdır. Orijinal yaklaşımın kaynağı yukarıda belirtilmiştir. Kişisel verileri ve gerçek veritabanlarını paylaşmayın.

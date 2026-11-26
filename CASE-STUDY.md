@@ -43,8 +43,8 @@ The user also confirmed that WhatsApp, which had failed to install for months, i
 
 ## Türkçe özet
 
-AtlasOS 0.4.1 kullanılan bir Windows 11 bilgisayarda aylardır Store/MSIX kurulumu yapılamıyordu. Olay 605 ve Evaluated aşamasındaki 0x80070490 hatası, AtlasOS #1763 ve #1764 ile eşleşti. İki SQLite veritabanı karşılaştırıldı. 11.513 dosya, 67 manifest ve 120 kaynak adresi kaydı Machine tarafında karşılıksızdı. Kopya üzerinde test ve çevrimdışı yedek alındı. WinRE'de toplam 11.700 sahipsiz kayıt temizlendi. Windows normal açıldı; ChatGPT ve WhatsApp başarıyla kuruldu. Bu bir gerçek vaka sonucudur, tüm Windows sürümleri için garanti değildir.
+AtlasOS 0.4.1 kullanılan bir Windows 11 bilgisayarda aylardır Store/MSIX kurulumu yapılamıyordu. Olay 605 ve Evaluated aşamasındaki 0x80070490 hatası, AtlasOS #1763 ve #1764 ile eşleşti. İki SQLite veritabanı karşılaştırıldı. 11.513 File tablosu kaydı, 67 manifest ve 120 kaynak adresi kaydı Machine tarafında karşılıksızdı. Kopya üzerinde test ve çevrimdışı yedek alındı. WinRE'de toplam 11.700 sahipsiz kayıt temizlendi. Windows normal açıldı; ChatGPT ve WhatsApp başarıyla kuruldu. Bu bir gerçek vaka sonucudur, tüm Windows sürümleri için garanti değildir.
 
 ## Reproducibility boundary
 
-The original manually prepared SQL script succeeded in the above case. The v0.1 distributed scripts have additional checks and explicit schema qualification; they have not yet been run on a real Windows machine. Their synthetic tests are included. No actual system databases, private identifiers, screenshots or raw logs are published. Exact upstream PR status should be checked before publication.
+The original manually prepared SQL script succeeded in the above case. The v0.1 distributed scripts have additional checks and explicit schema qualification; they have not yet been run on a real Windows machine. Their synthetic tests are included. No actual system databases, private identifiers, screenshots or raw logs are published. The current distribution remains experimental; later documentation and safety-check revisions do not change the original case results.

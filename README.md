@@ -1,6 +1,6 @@
 # AtlasOS AppX Orphan Repair — WinRE method
 
-**Experimental community guide • v0.1 — documentation revision 2 • 26 November 2026**
+**Experimental community guide • v0.1 — documentation revision 3 • 26 November 2026**
 
 [Turkish full guide / Türkçe kılavuz](README-TR.md) · [Case study](CASE-STUDY.md) · [Test results](TEST-RESULTS.txt)
 
@@ -35,7 +35,7 @@ A `File` row is metadata, not a physical file. For example, a row with Package=9
 ## 3. Prepare while in normal Windows
 
 - Finish pending updates safely before proceeding. Back up personal files and make a verified full system image; keep recovery media and BitLocker recovery keys accessible. Do not disable encryption just for this guide.
-- Extract this archive into `C:\AppxRepair` so the SQL files are directly inside it.
+- On GitHub choose **Code → Download ZIP**. Extract the contents into `C:\AppxRepair` so the SQL files are directly inside it (not in another nested directory). If Windows normally uses another drive letter, use that drive instead for this step and the CLI version check.
 - Download the architecture-appropriate official Windows command-line tools from https://sqlite.org/download.html, verify the published checksum, and place `sqlite3.exe` in the same directory. No executable is bundled. Test `C:\AppxRepair\sqlite3.exe -version` in PowerShell. Use a current CLI compatible with your WinRE environment.
 - Enter Windows Recovery Environment using Advanced startup or Shift+Restart → Troubleshoot → Advanced options → Command Prompt.
 
@@ -113,7 +113,7 @@ Both results must be only `ok`. Stop on read-only WAL access errors; do not dele
 "%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
 ```
 
-Require LivePackages > 0, LiveFiles > 0, Orphan_File <= LiveFiles, at least one orphan in the three target tables, and `quick_check=ok`. Stop on missing schema, SQL errors, or unsafe counts. No orphans means this repair is unnecessary.
+Require LivePackages > 0, LiveFiles > 0, Orphan_File <= LiveFiles, at least one orphan in the three target tables, all three `Unexpected_*_Package` counts equal to zero, and `quick_check=ok`. Stop on missing schema, SQL errors, or unsafe counts. No orphans means this repair is unnecessary.
 
 ```cmd
 "%SQL%" -bail "%DB%" < "%TOOLS%\repair-test.sql"
@@ -143,7 +143,7 @@ Expect deletion counts and `REPAIR COMMITTED SUCCESSFULLY`. This means the trans
 "%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
 ```
 
- All three orphan counts must be zero; valid package and file counts must be unchanged; quick_check must return `ok`. Stop on discrepancies. Do not manually remove WAL/SHM.
+ All three orphan counts must be zero; valid package, File, manifest and source URI counts must be unchanged; quick_check must return `ok`. Stop on discrepancies. Do not manually remove WAL/SHM.
 
 ```cmd
 wpeutil reboot
@@ -161,9 +161,9 @@ If Windows has already booted, its database state may have advanced. Do not rest
 
 ## 10. Safety design and testing
 
-The scripts use a read-only attached Machine DB, copy IDs into a temporary table, refuse empty Machine and excessive File orphan counts, check database structure before/after, use a single transaction, compare foreign-key violation counts for tables referencing the three targets, and require zero remaining orphans. Foreign keys are disabled in this connection only to account for the cross-database schema; the script does not change Windows settings. Counts of existing foreign-key violations are not a proof that every relationship is valid. Test mode rolls back, live mode commits. The CLI `.bail on` is mandatory.
+The scripts use a read-only attached Machine DB, copy IDs into a temporary table, refuse empty Machine and excessive File orphan counts, check database structure before/after, use a single transaction, compare foreign-key violation tuples (table, rowid, parent, FK ID) for tables referencing the three targets, reject violations without rowids, reject unexpected NULL/non-integer package IDs and zero live File rows, check for extra row changes using total_changes(), preserve valid row counts in all three target tables, and require zero remaining orphans. Foreign keys are disabled in this connection only to account for the cross-database schema; the script does not change Windows settings. These checks deliberately reject additional trigger-driven row changes, even if those changes might be legitimate on a particular Windows build. They do not prove every logical relationship is valid. Test mode rolls back, live mode commits. The CLI `.bail on` is mandatory.
 
-The revised distribution was tested with Python's SQLite on disposable synthetic databases. This does not test actual Windows schemas, CLI dot commands, WinRE compatibility, or backup/restore behavior. The original manual script was used successfully on one real PC. See CASE-STUDY.md and TEST-RESULTS.txt. Run `python test_sql.py` if desired; it never touches actual Windows databases.
+The revised distribution was tested with Python's SQLite on disposable synthetic databases (26 repair-mode test cases). This does not test actual Windows schemas, CLI dot commands, WinRE compatibility, or backup/restore behavior. The original manual script was used successfully on one real PC. See CASE-STUDY.md and TEST-RESULTS.txt. Run `python test_sql.py` if desired; it never touches actual Windows databases.
 
 ## References and credit
 
@@ -173,4 +173,4 @@ The revised distribution was tested with Python's SQLite on disposable synthetic
 - [Microsoft AppX troubleshooting](https://learn.microsoft.com/en-us/windows/win32/appxpkg/troubleshooting)
 - [SQLite CLI](https://sqlite.org/cli.html), [PRAGMA reference](https://sqlite.org/pragma.html)
 
-Independent community adaptation; not affiliated with AtlasOS or Microsoft. No raw system logs, personal details, proprietary databases or third-party executables are distributed. Review upstream licensing before incorporating upstream code or selecting a repository license.
+Independent community adaptation; not affiliated with AtlasOS or Microsoft. No raw system logs, personal details, proprietary databases or third-party executables are distributed. The distributed adaptation is licensed under GPL-3.0; see LICENSE. The upstream Atlas project is also GPL-3.0. Original approach credited above; this is a separate implementation.

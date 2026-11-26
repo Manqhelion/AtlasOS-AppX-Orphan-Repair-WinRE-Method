@@ -5,9 +5,24 @@ PASS test: majority
 PASS test: reference
 PASS test: existing
 PASS test: clean
+PASS test: null
+PASS test: noninteger
+PASS test: no_live_file
+PASS test: trigger_delete
+PASS test: trigger_update
+PASS test: fk_swap
+PASS test: missing_schema
 PASS live: normal
 PASS live: empty
 PASS live: majority
 PASS live: reference
 PASS live: existing
 PASS live: clean
+PASS live: null
+PASS live: noninteger
+PASS live: no_live_file
+PASS live: trigger_delete
+PASS live: trigger_update
+PASS live: fk_swap
+PASS live: missing_schema
+PASS read-only diagnosis smoke test (Python SQLite; separate from 26 repair-mode cases)
