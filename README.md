@@ -1,6 +1,6 @@
 # AtlasOS AppX Orphan Repair — WinRE method
 
-**Experimental community guide • v0.1 • 26 November 2026**
+**Experimental community guide • v0.1 — documentation revision 2 • 26 November 2026**
 
 [Turkish full guide / Türkçe kılavuz](README-TR.md) · [Case study](CASE-STUDY.md) · [Test results](TEST-RESULTS.txt)
 
@@ -26,6 +26,12 @@ AtlasOS issue #1763 and PR #1764 propose that AME `!appx` removals on older Atla
 
 The scripts compare `StateRepository-Machine.srd` → `Package._PackageID` with `StateRepository-Deployment.srd` → `File.Package`, `AppxManifest.Package`, and `PackageSourceUri.Package`. Only the three target tables are modified. The Machine database is opened read-only. Raw foreign-key checks across the entire Deployment database can report missing parents that actually reside in the Machine database. `quick_check` checks database structure, not all logical relationships.
 
+### Why orphaned records can break installation
+
+A `File` row is metadata, not a physical file. For example, a row with Package=999 is orphaned if Machine no longer contains package 999. PR #1764 hypothesizes that Windows compares new file digests with existing `File.Digest` records during evaluation to assess hardlink reuse. A matching record belonging to a missing package can prevent the required package lookup, potentially producing `0x80070490` (element not found). The outer `0x80073CF9` is a generic deployment failure. This mechanism is inferred from observations and upstream comments, not documented by Microsoft. Successful installs after cleanup in our case support the hypothesis but do not prove that each orphan caused a failure.
+
+**Compatibility limits:** Microsoft does not expose this private database schema as a supported editing interface. Tables, triggers and relationships can vary across Windows builds. Successful SQL checks do not establish Windows compatibility. A matching error signature, full system image, offline backup, working-copy test and post-repair validation remain mandatory. The scripts do not hardcode package IDs or orphan counts from our PC.
+
 ## 3. Prepare while in normal Windows
 
 - Finish pending updates safely before proceeding. Back up personal files and make a verified full system image; keep recovery media and BitLocker recovery keys accessible. Do not disable encryption just for this guide.
@@ -41,54 +47,76 @@ list volume
 exit
 ```
 
-Examples below use **E:** for the installed Windows volume and **F:** for external backup storage. Replace both with your verified actual letters. X: is normally the recovery environment. These examples assume the default ProgramData location.
+**Set the drive letters only here.** E: is the example installed Windows volume; F: is the example external backup drive. Replace these with your verified letters. X: is normally WinRE's RAM disk; do not use it. Stop if ProgramData is in a nonstandard location.
 
 ```cmd
-dir E:\Windows\System32\config\SYSTEM
-dir E:\AppxRepair
-dir E:\ProgramData\Microsoft\Windows\AppRepository\StateRepository-*.srd*
-dir F:\
+set "WIN=E:"
+set "DEST=F:\AppxBackup-01"
+set "REPO=%WIN%\ProgramData\Microsoft\Windows\AppRepository"
+set "TOOLS=%WIN%\AppxRepair"
+set "BAK=%DEST%\original"
+set "TEST=%DEST%\test"
+set "SQL=%TOOLS%\sqlite3.exe"
+set "DB=StateRepository-Deployment.srd"
+set "MACHINE=StateRepository-Machine.srd"
 ```
 
-Stop if files are missing, volume identity is uncertain, or the disk is locked. Never publish recovery keys.
+Edit only the first two lines. DEST must be a new, nonexistent directory; choose another name and redefine the variables if it exists. Use the remaining commands verbatim. Variables last only for this CMD session; redefine them and verify drive letters if you open another window.
+
+```cmd
+dir "%WIN%\Windows\System32\config\SYSTEM"
+dir "%REPO%\StateRepository-*.srd*"
+dir "%TOOLS%"
+if exist "%DEST%" echo STOP - backup folder already exists
+"%SQL%" -version
+```
+
+Both main databases, sqlite3.exe and all three SQL files must exist. Verify the external backup disk is accessible and has sufficient free space. Stop on any error, STOP message or uncertainty.
 
 ## 5. Back up the offline database pair
 
-Use new empty folders; change the suffix if a folder already exists. Check every command for errors. These are Command Prompt commands, not PowerShell.
+Run each command separately. Stop on any failure. Create the archive and working copy under the same new backup root.
 
 ```cmd
-cd /d E:\ProgramData\Microsoft\Windows\AppRepository
-mkdir F:\AppxBackup-20261126
-copy /v StateRepository-Deployment.srd* F:\AppxBackup-20261126\
-copy /v StateRepository-Machine.srd* F:\AppxBackup-20261126\
-dir F:\AppxBackup-20261126
-fc /b StateRepository-Deployment.srd F:\AppxBackup-20261126\StateRepository-Deployment.srd
-fc /b StateRepository-Machine.srd F:\AppxBackup-20261126\StateRepository-Machine.srd
+cd /d "%REPO%"
+mkdir "%BAK%"
+copy /v "%DB%*" "%BAK%\"
+copy /v "%MACHINE%*" "%BAK%\"
+dir "%BAK%"
+fc /b "%DB%" "%BAK%\%DB%"
+fc /b "%MACHINE%" "%BAK%\%MACHINE%"
 ```
 
-Compare each existing sidecar (`-wal`, `-shm`, and `-journal` if present) with `fc /b` too. Check source/destination sizes and counts. Stop on any discrepancy. Keep archival backup untouched; create a separate working copy:
+Compare every existing sidecar (`-wal`, `-shm`, `-journal` if present) using the commands below. Use a single `%S` at the interactive CMD prompt. Stop on any difference or error; also compare file sizes and counts. Keep the archive untouched.
 
 ```cmd
-mkdir F:\AppxTest-20261126
-copy /v F:\AppxBackup-20261126\StateRepository-Deployment.srd* F:\AppxTest-20261126\
-copy /v F:\AppxBackup-20261126\StateRepository-Machine.srd* F:\AppxTest-20261126\
-cd /d F:\AppxTest-20261126
-E:\AppxRepair\sqlite3.exe -readonly StateRepository-Machine.srd "PRAGMA quick_check;"
-E:\AppxRepair\sqlite3.exe -readonly StateRepository-Deployment.srd "PRAGMA quick_check;"
+for %S in (wal shm journal) do @if exist "%DB%-%S" fc /b "%DB%-%S" "%BAK%\%DB%-%S"
+for %S in (wal shm journal) do @if exist "%MACHINE%-%S" fc /b "%MACHINE%-%S" "%BAK%\%MACHINE%-%S"
 ```
 
-Both checks must return only `ok`. Do not manually delete sidecars to fix read-only WAL access errors.
+Create a separate working copy and test only that copy.
+
+```cmd
+mkdir "%TEST%"
+copy /v "%BAK%\%DB%*" "%TEST%\"
+copy /v "%BAK%\%MACHINE%*" "%TEST%\"
+cd /d "%TEST%"
+"%SQL%" -readonly "%MACHINE%" "PRAGMA quick_check;"
+"%SQL%" -readonly "%DB%" "PRAGMA quick_check;"
+```
+
+Both results must be only `ok`. Stop on read-only WAL access errors; do not delete sidecars manually.
 
 ## 6. Diagnose and dry-run on the working copy
 
 ```cmd
-E:\AppxRepair\sqlite3.exe -bail -readonly StateRepository-Deployment.srd < E:\AppxRepair\diagnose.sql
+"%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
 ```
 
 Require LivePackages > 0, LiveFiles > 0, Orphan_File <= LiveFiles, at least one orphan in the three target tables, and `quick_check=ok`. Stop on missing schema, SQL errors, or unsafe counts. No orphans means this repair is unnecessary.
 
 ```cmd
-E:\AppxRepair\sqlite3.exe -bail StateRepository-Deployment.srd < E:\AppxRepair\repair-test.sql
+"%SQL%" -bail "%DB%" < "%TOOLS%\repair-test.sql"
 ```
 
 Require `TEST PASSED - NO CHANGES SAVED`. Run diagnose again; counts must be unchanged. If the dry-run fails, do not proceed. Never ignore a SQL error. Scripts abort on errors; connection closure rolls back an open transaction.
@@ -98,18 +126,24 @@ Require `TEST PASSED - NO CHANGES SAVED`. Run diagnose again; counts must be unc
 Only after the preceding checks and backups succeed. Do not execute from normal Windows. Change to the real repository:
 
 ```cmd
-cd /d E:\ProgramData\Microsoft\Windows\AppRepository
+cd /d "%REPO%"
 dir StateRepository-*.srd*
-E:\AppxRepair\sqlite3.exe -bail -readonly StateRepository-Deployment.srd < E:\AppxRepair\diagnose.sql
+"%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
 ```
 
 Counts must match the working copy. If they differ, stop and reassess backups. Then:
 
 ```cmd
-E:\AppxRepair\sqlite3.exe -bail StateRepository-Deployment.srd < E:\AppxRepair\repair-live.sql
+"%SQL%" -bail "%DB%" < "%TOOLS%\repair-live.sql"
 ```
 
-Expect deletion counts and `REPAIR COMMITTED SUCCESSFULLY`. This means the transaction committed, not that Windows functionality is guaranteed. Run the read-only diagnosis again: all three orphan counts must be zero; valid package and file counts must be unchanged; quick_check must return `ok`. Stop on discrepancies. Do not manually remove WAL/SHM.
+Expect deletion counts and `REPAIR COMMITTED SUCCESSFULLY`. This means the transaction committed, not that Windows functionality is guaranteed. Run the following read-only diagnosis again:
+
+```cmd
+"%SQL%" -bail -readonly "%DB%" < "%TOOLS%\diagnose.sql"
+```
+
+ All three orphan counts must be zero; valid package and file counts must be unchanged; quick_check must return `ok`. Stop on discrepancies. Do not manually remove WAL/SHM.
 
 ```cmd
 wpeutil reboot
