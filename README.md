@@ -8,6 +8,8 @@ Targeted workaround for Microsoft Store / AppX / MSIX error `0x80073CF9`, inner 
 
 > **Warning:** This modifies internal Windows system databases. Back up personal files and create a verified full system image first. Prefer the current official [AtlasOS Store repair guide](https://atlasos.net/docs/faq/microsoft-store/). Do not run the repair while normal Windows is running, during a pending update, or without confirmed matching symptoms and backups. Not a universal fix.
 
+> **Prefer the official fix when available:** This WinRE guide is an experimental manual workaround for affected installations before the automated repair is available. Once [AtlasOS PR #1764](https://github.com/Atlas-OS/Atlas/pull/1764) is merged **and included in the Atlas Manager version you are using**, prefer the official repair in **Get ready**. It performs the cleanup automatically with safeguards and a backup; manual WinRE steps and SQL scripts should no longer be necessary for this issue. Check the PR and official release notes for availability. This guide remains available for reference and older affected installations.
+
 ## 1. Confirm the symptom
 
 In elevated PowerShell:

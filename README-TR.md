@@ -6,6 +6,8 @@ Microsoft Store, AppX ve MSIX yüklemelerinde `0x80073CF9` / iç hata `0x8007049
 
 > **ÖNEMLİ:** Windows sistem veritabanı değiştirilecektir. Yanlış disk, farklı şema veya tutarsız yedek sistemi bozabilir. Tam sistem imajı ve kişisel dosya yedeği olmadan canlı onarıma geçmeyin. Öncelikle güncel resmî Atlas Store onarımını değerlendirin. Bu rehber deneyimli kullanıcılar içindir; şüphede kalırsanız durun.
 
+> **Resmî çözüm kullanılabilir olduğunda onu tercih edin:** Bu WinRE rehberi, otomatik onarım henüz kullanıma sunulmamışken etkilenen kurulumlar için deneysel bir manuel çözümdür. [AtlasOS PR #1764](https://github.com/Atlas-OS/Atlas/pull/1764) birleştirildiğinde **ve kullandığınız Atlas Manager sürümüne dahil edildiğinde**, **Get ready (Hazırlık)** aşamasındaki resmî onarımı tercih edin. Bu onarım güvenlik kontrolleri ve yedekleme ile temizliği otomatik yapar; bu sorun için manuel WinRE adımlarına ve SQL betiklerine artık ihtiyaç kalmaması beklenir. Kullanılabilirlik durumunu PR sayfasından ve resmî sürüm notlarından kontrol edin. Bu rehber, teknik referans ve etkilenen eski kurulumlar için erişilebilir kalacaktır.
+
 ## 1. Belirtiler ve kapsam
 
 Birden fazla uygulama Store'dan veya `Add-AppxPackage` ile kurulamıyor; Event Viewer'da **Microsoft-Windows-AppXDeploymentServer/Operational**, olay 605, `Error 0x80070490: Failure in the Evaluated state handler.` görülüyor. Dış hata 0x80073CF9 olabilir. 0x80073D28 tek başına bu teşhisi desteklemez.
