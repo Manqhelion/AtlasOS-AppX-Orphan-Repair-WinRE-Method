@@ -1,0 +1,13 @@
+Synthetic tests only — Python SQLite 3.46.1; CLI dot commands not executed.
+PASS test: normal
+PASS test: empty
+PASS test: majority
+PASS test: reference
+PASS test: existing
+PASS test: clean
+PASS live: normal
+PASS live: empty
+PASS live: majority
+PASS live: reference
+PASS live: existing
+PASS live: clean
